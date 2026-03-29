@@ -408,14 +408,20 @@ if __name__ == "__main__":
         print(f"  IP aktif  : {cek_ip_proxy(None)} (tanpa proxy)")
     print("="*60)
 
-    try:
-        JUMLAH_AKUN = int(input("\n  Berapa akun yang ingin dibuat? : "))
-        if JUMLAH_AKUN < 1:
-            print("  Jumlah akun harus minimal 1. Script dihentikan.")
+    # Cek environment variable dulu, baru tanya user
+    jumlah_env = os.environ.get("JUMLAH_AKUN")
+    if jumlah_env:
+        JUMLAH_AKUN = int(jumlah_env)
+        print(f"\n  Jumlah akun dari env: {JUMLAH_AKUN}")
+    else:
+        try:
+            JUMLAH_AKUN = int(input("\n  Berapa akun yang ingin dibuat? : "))
+            if JUMLAH_AKUN < 1:
+                print("  Jumlah akun harus minimal 1. Script dihentikan.")
+                exit()
+        except ValueError:
+            print("  Input tidak valid. Masukkan angka bulat. Script dihentikan.")
             exit()
-    except ValueError:
-        print("  Input tidak valid. Masukkan angka bulat. Script dihentikan.")
-        exit()
 
     print(f"  Akan membuat {JUMLAH_AKUN} akun.")
     print("="*60)
