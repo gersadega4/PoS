@@ -33,7 +33,7 @@ def generate_plus_email():
     suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     return f"{GMAIL_BASE}+{suffix}@{GMAIL_DOMAIN}"
 
-def ambil_kode_railway(timeout=120):
+def ambil_kode_railway(target_email, timeout=120):
     """Ambil login code Railway dari inbox via IMAP. Polling sampai timeout."""
     print("     -> Menghubungkan ke Gmail via IMAP...")
     deadline = time.time() + timeout
@@ -65,12 +65,18 @@ def ambil_kode_railway(timeout=120):
                 raw = msg_data[0][1]
                 msg = email.message_from_bytes(raw)
                 subject = msg.get("Subject", "")
+                to_field = msg.get("To", "")
+
+                # Pastikan email ini memang ditujukan ke generated_email
+                if target_email.lower() not in to_field.lower():
+                    print(f"     -> Skip email (To: {to_field} bukan {target_email})")
+                    continue
 
                 match = re.match(r"(\d{6}) is your Railway login code", subject)
                 if match:
                     kode = match.group(1)
                     mail.logout()
-                    print(f"     -> Kode ditemukan: {kode}")
+                    print(f"     -> Kode ditemukan untuk {target_email}: {kode}")
                     return kode
 
             mail.logout()
@@ -249,7 +255,7 @@ def proses_akun(proxy):
         imap_result = {"kode": None}
 
         def fetch_imap():
-            imap_result["kode"] = ambil_kode_railway(timeout=120)
+            imap_result["kode"] = ambil_kode_railway(generated_email, timeout=120)
 
         imap_thread = threading.Thread(target=fetch_imap, daemon=True)
         imap_thread.start()
@@ -301,37 +307,15 @@ def proses_akun(proxy):
         finally:
             driver.switch_to.default_content()
 
-        # ── STEP 7 ──────────────────────────────────────────────────
-        print("[7] Cek konfirmasi Google 'Saya mengerti'...")
-        try:
-            WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "confirm"))).click()
-            print("     -> Diklik.")
-            time.sleep(2)
-        except:
-            print("     -> Tidak muncul, lanjut.")
-
-        # ── STEP 8 ──────────────────────────────────────────────────
-        print("[8] Cek tombol 'Lanjutkan'...")
-        try:
-            WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//span[@jsname='V67aGc' and normalize-space()='Lanjutkan']")
-                )).click()
-            print("     -> Diklik.")
-            time.sleep(3)
-        except:
-            print("     -> Tidak muncul, lanjut.")
-
         # ── Simpan akun ke file setelah login berhasil ───────────────
         simpan_akun(AKUN_FILE, generated_email)
 
-        print("[9] Klik 'I agree with Railway Terms of Service'...")
+        print("[7] Klik 'I agree with Railway Terms of Service'...")
         tunggu_dan_klik(driver, wait, By.XPATH,
             "//button[.//span[normalize-space()=\"I agree with Railway's Terms of Service\"]]")
         time.sleep(5)
 
-        print("[10] Cek 'I will not deploy any of that'...")
+        print("[8] Cek 'I will not deploy any of that'...")
         try:
             WebDriverWait(driver, 15).until(
                 EC.element_to_be_clickable(
@@ -346,11 +330,11 @@ def proses_akun(proxy):
             "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
         time.sleep(3)
 
-        print("[11] Klik Docker Image...")
+        print("[9] Klik Docker Image...")
         tunggu_dan_klik(driver, wait, By.XPATH, "//div[@data-value='docker-service']")
         time.sleep(2)
 
-        print("[12] Isi nama Docker image...")
+        print("[10] Isi nama Docker image...")
         docker_input = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR,
             "input[data-testid='palette-root-input']", klik=True)
         if docker_input:
@@ -361,18 +345,18 @@ def proses_akun(proxy):
         print("     -> Menunggu 15 detik...")
         time.sleep(15)
 
-        print("[13] Buka dashboard Railway...")
+        print("[11] Buka dashboard Railway...")
         driver.get("https://railway.com/dashboard")
         time.sleep(4)
         tunggu_dan_klik(driver, wait, By.XPATH,
             "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
         time.sleep(3)
 
-        print("[14] Klik Docker Image (dari dashboard)...")
+        print("[12] Klik Docker Image (dari dashboard)...")
         tunggu_dan_klik(driver, wait, By.XPATH, "//div[@data-value='docker-service']")
         time.sleep(2)
 
-        print("[15] Isi nama Docker image (dari dashboard)...")
+        print("[13] Isi nama Docker image (dari dashboard)...")
         docker_input2 = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR,
             "input[data-testid='palette-root-input']", klik=True)
         if docker_input2:
@@ -383,7 +367,7 @@ def proses_akun(proxy):
         print("     -> Menunggu 15 detik untuk review...")
         time.sleep(15)
 
-        print(f"[OK] Akun {generated_email} selesai.")
+        print(f"[14] Akun {generated_email} selesai.")
 
     except Exception as e:
         print(f"[ERROR] {generated_email} gagal: {e}")
