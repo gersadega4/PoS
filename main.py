@@ -67,7 +67,6 @@ def ambil_kode_railway(target_email, timeout=120):
                 subject = msg.get("Subject", "")
                 to_field = msg.get("To", "")
 
-                # Pastikan email ini memang ditujukan ke generated_email
                 if target_email.lower() not in to_field.lower():
                     print(f"     -> Skip email (To: {to_field} bukan {target_email})")
                     continue
@@ -224,6 +223,19 @@ def tunggu_dan_klik(driver, wait, by, selector, timeout=60, klik=True):
         print(f"  [!] Gagal: {selector[:80]}... | Error: {e}")
         return None
 
+def klik_dengan_js(driver, wait, by, selector):
+    """Klik elemen via JavaScript untuk bypass element click intercepted."""
+    try:
+        el = wait.until(EC.presence_of_element_located((by, selector)))
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+        time.sleep(0.5)
+        driver.execute_script("arguments[0].click();", el)
+        print(f"     -> Diklik (JS): {selector[:80]}")
+        return el
+    except Exception as e:
+        print(f"  [!] Gagal JS click: {selector[:80]}... | Error: {e}")
+        return None
+
 def proses_akun(proxy):
     generated_email = generate_plus_email()
 
@@ -236,7 +248,7 @@ def proses_akun(proxy):
 
     try:
         print("[1] Membuka https://railway.com/")
-        driver.get("https://railway.com/")
+        driver.get("https://railway.com/?referralCode=xS8VnG")
         time.sleep(3)
 
         print("[2] Klik tombol Sign in...")
@@ -330,44 +342,70 @@ def proses_akun(proxy):
             "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
         time.sleep(3)
 
-        print("[9] Klik Docker Image...")
-        tunggu_dan_klik(driver, wait, By.XPATH, "//div[@data-value='docker-service']")
+        print("[9] Tunggu dan klik Empty Project...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-project']")
         time.sleep(2)
 
-        print("[10] Isi nama Docker image...")
+        print("[10] Tunggu dan klik Empty Service...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-service']")
+        time.sleep(2)
+
+        print("[11] Tunggu dan klik Connect Image...")
+        klik_dengan_js(driver, wait, By.XPATH, "//button[.//span[normalize-space()='Connect Image']]")
+        time.sleep(2)
+
+        print("[12] Isi Docker image dan tekan ENTER...")
         docker_input = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR,
-            "input[data-testid='palette-root-input']", klik=True)
+            "input[data-testid='create-image-service-input']", klik=True)
         if docker_input:
             docker_input.clear()
             docker_input.send_keys(DOCKER_IMAGE)
             time.sleep(1)
             docker_input.send_keys(Keys.ENTER)
-        print("     -> Menunggu 15 detik...")
-        time.sleep(15)
+        time.sleep(2)
 
-        print("[11] Buka dashboard Railway...")
+        print("[13] Tunggu dan klik Deploy...")
+        klik_dengan_js(driver, wait, By.CSS_SELECTOR, "button[data-testid='apply-changes']")
+        print("     -> Menunggu 10 detik untuk review...")
+        time.sleep(10)
+
+        print("[14] Buka dashboard Railway...")
         driver.get("https://railway.com/dashboard")
         time.sleep(4)
+
+        print("[15] Tunggu dan klik New...")
         tunggu_dan_klik(driver, wait, By.XPATH,
             "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
         time.sleep(3)
 
-        print("[12] Klik Docker Image (dari dashboard)...")
-        tunggu_dan_klik(driver, wait, By.XPATH, "//div[@data-value='docker-service']")
+        print("[16] Tunggu dan klik Empty Project...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-project']")
         time.sleep(2)
 
-        print("[13] Isi nama Docker image (dari dashboard)...")
+        print("[17] Tunggu dan klik Empty Service...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-service']")
+        time.sleep(2)
+
+        print("[18] Tunggu dan klik Connect Image...")
+        klik_dengan_js(driver, wait, By.XPATH, "//button[.//span[normalize-space()='Connect Image']]")
+        time.sleep(2)
+
+        print("[19] Isi Docker image dan tekan ENTER...")
         docker_input2 = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR,
-            "input[data-testid='palette-root-input']", klik=True)
+            "input[data-testid='create-image-service-input']", klik=True)
         if docker_input2:
             docker_input2.clear()
             docker_input2.send_keys(DOCKER_IMAGE)
             time.sleep(1)
             docker_input2.send_keys(Keys.ENTER)
-        print("     -> Menunggu 15 detik untuk review...")
-        time.sleep(15)
+        time.sleep(2)
 
-        print(f"[14] Akun {generated_email} selesai.")
+        print("[20] Tunggu dan klik Deploy...")
+        klik_dengan_js(driver, wait, By.CSS_SELECTOR, "button[data-testid='apply-changes']")
+        print("     -> Menunggu 10 detik untuk review...")
+        time.sleep(10)
+
+        print(f"[OK] Akun {generated_email} selesai.")
 
     except Exception as e:
         print(f"[ERROR] {generated_email} gagal: {e}")
