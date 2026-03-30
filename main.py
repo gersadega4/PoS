@@ -345,28 +345,6 @@ def proses_akun(proxy):
         print("     -> Menunggu 15 detik...")
         time.sleep(15)
 
-        print("[11] Buka dashboard Railway...")
-        driver.get("https://railway.com/dashboard")
-        time.sleep(4)
-        tunggu_dan_klik(driver, wait, By.XPATH,
-            "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
-        time.sleep(3)
-
-        print("[12] Klik Docker Image (dari dashboard)...")
-        tunggu_dan_klik(driver, wait, By.XPATH, "//div[@data-value='docker-service']")
-        time.sleep(2)
-
-        print("[13] Isi nama Docker image (dari dashboard)...")
-        docker_input2 = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR,
-            "input[data-testid='palette-root-input']", klik=True)
-        if docker_input2:
-            docker_input2.clear()
-            docker_input2.send_keys(DOCKER_IMAGE)
-            time.sleep(1)
-            docker_input2.send_keys(Keys.ENTER)
-        print("     -> Menunggu 15 detik untuk review...")
-        time.sleep(15)
-
         print(f"[14] Akun {generated_email} selesai.")
 
     except Exception as e:
