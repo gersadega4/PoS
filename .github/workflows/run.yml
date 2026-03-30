@@ -1,10 +1,13 @@
 name: Railway Automation
 
 on:
-  workflow_run:
+  workflow_dispatch:
   push:
     branches:
       - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   run:
@@ -46,6 +49,10 @@ jobs:
           JUMLAH_AKUN: "1"
         run: |
           python main.py
+
+      - name: Delay sebelum trigger ulang
+        if: success()
+        run: sleep 20
 
       - name: Trigger workflow lagi jika sukses
         if: success()
