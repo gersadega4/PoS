@@ -1,7 +1,7 @@
 name: Railway Automation
 
 on:
-  workflow_dispatch:
+  workflow_run:
   push:
     branches:
       - main
