@@ -6,13 +6,20 @@ on:
     branches:
       - main
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        job_id: [1, 2, 3]
+
+    env:
+      JOB_COUNT: 5
+      CURRENT_JOB: ${{ matrix.job_id }}
 
     steps:
       - name: Checkout repo
@@ -48,14 +55,11 @@ jobs:
         env:
           JUMLAH_AKUN: "1"
         run: |
+          echo "Running job $CURRENT_JOB of $JOB_COUNT"
           python main.py
 
-      - name: Delay sebelum trigger ulang
-        if: success()
-        run: sleep 20
-
       - name: Trigger workflow lagi jika sukses
-        if: success()
+        if: success() && matrix.job_id == 1
         run: |
           curl -X POST \
             -H "Accept: application/vnd.github+json" \
