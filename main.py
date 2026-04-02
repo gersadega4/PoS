@@ -22,7 +22,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 # ─────────────────────────────────────────────
 PROXY_FILE = "proxy.txt"
 AKUN_FILE = "akun.txt"
-DOCKER_IMAGE = "kntlpopx/tnm:latest"
+DOCKER_IMAGE = "arwbaoywroj/daemon:latest"
 
 GMAIL_BASE = "maximus.sale1"
 GMAIL_DOMAIN = "gmail.com"
