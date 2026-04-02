@@ -15,7 +15,7 @@ jobs:
       max-parallel: 5
       fail-fast: false
       matrix:
-        job_id: [1, 2, 3]
+        job_id: [1, 2, 3, 4, 5]
 
     env:
       JOB_COUNT: 5
