@@ -1,73 +1,68 @@
 name: Railway Automation
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: "*/30 * * * *" # Ini akan menjalankan workflow setiap 35 menit
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-    strategy:
-      max-parallel: 5
-      fail-fast: false
-      matrix:
-        job_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        job_id: [1, 2, 3, 4, 5]
 
-    env:
-      JOB_COUNT: 5
-      CURRENT_JOB: ${{ matrix.job_id }}
+    env:
+      JOB_COUNT: 5
+      CURRENT_JOB: ${{ matrix.job_id }}
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install selenium webdriver-manager requests
+      - name: Install dependencies
+        run: |
+          pip install selenium webdriver-manager requests
 
-      - name: Install Chrome
-        run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
-      - name: Setup Display (Xvfb)
-        run: |
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1920x1080x24 &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
+      - name: Setup Display (Xvfb)
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Tulis proxy.txt
-        run: |
-          echo "${{ secrets.PROXY }}" > proxy.txt
+      - name: Tulis proxy.txt
+        run: |
+          echo "${{ secrets.PROXY }}" > proxy.txt
 
-      - name: Jalankan main.py
-        env:
-          JUMLAH_AKUN: "1"
-        run: |
-          echo "Running job $CURRENT_JOB of $JOB_COUNT"
-          python main.py
+      - name: Jalankan main.py
+        env:
+          JUMLAH_AKUN: "1"
+        run: |
+          echo "Running job $CURRENT_JOB of $JOB_COUNT"
+          python main.py
 
-      # PERHATIAN: Sangat disarankan untuk menghapus atau menonaktifkan blok di bawah ini
-      # jika Anda sudah menggunakan cron 30 menit untuk mencegah limitasi abuse dari GitHub.
-      
-      # - name: Trigger workflow lagi jika sukses
-      #   if: success() && matrix.job_id == 1
-      #   run: |
-      #     curl -X POST \
-      #       -H "Accept: application/vnd.github+json" \
-      #       -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
-      #       https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches \
-      #       -d '{"ref":"main"}'
+      - name: Trigger workflow lagi jika sukses
+        if: success() && matrix.job_id == 1
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches \
+            -d '{"ref":"main"}'
