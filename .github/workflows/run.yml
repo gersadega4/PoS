@@ -1,68 +1,76 @@
 name: Railway Automation
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  run:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-    strategy:
-      max-parallel: 5
-      fail-fast: false
-      matrix:
-        job_id: [1, 2, 3, 4, 5]
+    strategy:
+      max-parallel: 5
+      fail-fast: false
+      matrix:
+        job_id: [1, 2, 3, 4, 5]
 
-    env:
-      JOB_COUNT: 5
-      CURRENT_JOB: ${{ matrix.job_id }}
+    env:
+      JOB_COUNT: 5
+      CURRENT_JOB: ${{ matrix.job_id }}
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install selenium webdriver-manager requests
+      - name: Install dependencies
+        run: |
+          pip install selenium webdriver-manager requests
 
-      - name: Install Chrome
-        run: |
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
 
-      - name: Setup Display (Xvfb)
-        run: |
-          sudo apt-get install -y xvfb
-          Xvfb :99 -screen 0 1920x1080x24 &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
+      - name: Setup Display (Xvfb)
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Tulis proxy.txt
-        run: |
-          echo "${{ secrets.PROXY }}" > proxy.txt
+      - name: Tulis proxy.txt
+        run: |
+          echo "${{ secrets.PROXY }}" > proxy.txt
 
-      - name: Jalankan main.py
-        env:
-          JUMLAH_AKUN: "1"
-        run: |
-          echo "Running job $CURRENT_JOB of $JOB_COUNT"
-          python main.py
+      - name: Jalankan main.py
+        env:
+          JUMLAH_AKUN: "1"
+        run: |
+          echo "Running job $CURRENT_JOB of $JOB_COUNT"
+          python main.py
 
-      - name: Trigger workflow lagi jika sukses
-        if: success() && matrix.job_id == 1
-        run: |
-          curl -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GH_PAT }}" \
-            https://api.github.com/repos/${{ github.repository }}/actions/workflows/run.yml/dispatches \
-            -d '{"ref":"main"}'
+  # --- BAGIAN YANG DITAMBAHKAN (Arsitektur Penunggu) ---
+  trigger-next:
+    needs: run
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Trigger Workflow Again
+        env:
+          # Menggunakan GH_PAT sesuai dengan secret bawaan run1.yml sebelumnya
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Perintah dieksekusi HANYA SETELAH ke-5 job di atas selesai semua
+          gh workflow run "Railway Automation" --ref main
