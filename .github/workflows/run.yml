@@ -6,7 +6,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "*/35 * * * *" # Ini akan menjalankan workflow setiap 35 menit
+    - cron: "*/30 * * * *" # Ini akan menjalankan workflow setiap 35 menit
 
 jobs:
   run:
