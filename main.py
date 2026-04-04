@@ -23,10 +23,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 PROXY_FILE = "proxy.txt"
 AKUN_FILE = "akun.txt"
 
-GMAIL_BASE = "barbieanay003"
+GMAIL_BASE = "maximus.sale1"
 GMAIL_DOMAIN = "gmail.com"
-GMAIL_USERNAME = "barbieanay003@gmail.com"
-GMAIL_PASSWORD = "hfkk ftuh aksf dfxc"
+GMAIL_USERNAME = "maximus.sale1@gmail.com"
+GMAIL_PASSWORD = "etnv ileo azii egtb"
 
 DAFTAR_REGION = [ "europe-west4-drams3a", "asia-southeast1-eqsg3a", "us-east4-eqdc4a" ]
 
