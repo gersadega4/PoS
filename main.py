@@ -31,8 +31,8 @@ GMAIL_PASSWORD = "etnv ileo azii egtb"
 DAFTAR_REGION = [ "europe-west4-drams3a", "asia-southeast1-eqsg3a", "us-east4-eqdc4a" ]
 
 # --- KONFIGURASI REPOSITORI UNTUK DEPLOY ---
-REPO_URL_1 = "https://github.com/gersadega4/disini.git"
-REPO_URL_2 = "https://github.com/clarkspicer-design/here.git"
+REPO_URL_1 = "https://github.com/gersadega4/class.git"
+REPO_URL_2 = "https://github.com/gersadega4/class.git"
 # ─────────────────────────────────────────────
 
 def generate_plus_email():
