@@ -31,8 +31,8 @@ GMAIL_PASSWORD = "etnv ileo azii egtb"
 DAFTAR_REGION = [ "europe-west4-drams3a", "asia-southeast1-eqsg3a", "us-east4-eqdc4a" ]
 
 # --- KONFIGURASI REPOSITORI UNTUK DEPLOY ---
-REPO_URL_1 = "https://github.com/gersadega4/class.git"
-REPO_URL_2 = "https://github.com/gersadega4/class.git"
+REPO_URL_1 = "https://github.com/gersadega4/disini.git"
+REPO_URL_2 = "https://github.com/clarkspicer-design/here.git"
 # ─────────────────────────────────────────────
 
 def generate_plus_email():
@@ -148,4 +148,313 @@ def buat_plugin_proxy(proxy):
     manifest_json = """
     {
         "version": "1.0.0",
-        "manifest_version":
+        "manifest_version": 2,
+        "name": "Proxy Auth Plugin",
+        "permissions": [
+            "proxy", "tabs", "unlimitedStorage", "storage", "<all_urls>", "webRequest", "webRequestBlocking"
+        ],
+        "background": {"scripts": ["background.js"]}
+    }
+    """
+    background_js = f"""
+    var config = {{
+        mode: "fixed_servers",
+        rules: {{
+            singleProxy: {{scheme: "http", host: "{proxy['host']}", port: parseInt("{proxy['port']}")}},
+            bypassList: ["localhost"]
+        }}
+    }};
+    chrome.proxy.settings.set({{value: config, scope: "regular"}}, function() {{}});
+    function callbackFn(details) {{
+        return {{authCredentials: {{username: "{proxy['username']}", password: "{proxy['password']}"}}}};
+    }}
+    chrome.webRequest.onAuthRequired.addListener(callbackFn, {{urls: ["<all_urls>"]}}, ["blocking"]);
+    """
+    plugin_path = os.path.join(plugin_dir, "proxy_auth.zip")
+    with zipfile.ZipFile(plugin_path, "w") as zp:
+        zp.writestr("manifest.json", manifest_json)
+        zp.writestr("background.js", background_js)
+    return plugin_path
+
+def buat_driver(proxy):
+    chrome_options = Options()
+    if proxy:
+        plugin_path = buat_plugin_proxy(proxy)
+        chrome_options.add_extension(plugin_path)
+
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+    chrome_options.add_argument("--log-level=3")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+    chrome_options.add_experimental_option("useAutomationExtension", False)
+
+    service = Service(ChromeDriverManager().install(), log_output=os.devnull)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    return driver
+
+def tunggu_dan_klik(driver, wait, by, selector, retries=3, timeout_per_try=30, klik=True):
+    for attempt in range(1, retries + 1):
+        try:
+            temp_wait = WebDriverWait(driver, timeout_per_try)
+            element = temp_wait.until(EC.presence_of_element_located((by, selector)))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});", element)
+            time.sleep(1) 
+            
+            if klik:
+                temp_wait.until(EC.element_to_be_clickable((by, selector)))
+                try:
+                    element.click()
+                except Exception as click_err:
+                    err_msg = str(click_err).lower()
+                    if "intercepted" in err_msg or "not clickable" in err_msg:
+                        print(f"     -> Klik biasa terhalang, mencoba JS click...")
+                        driver.execute_script("arguments[0].click();", element)
+                    else:
+                        raise click_err 
+            return element
+            
+        except Exception as e:
+            print(f"  [~] Percobaan {attempt}/{retries} gagal untuk elemen '{selector[:30]}...'")
+            if attempt == retries:
+                print(f"  [!] Kegagalan final pada elemen. Error: {str(e).splitlines()[0]}")
+                raise Exception(f"Elemen krusial tidak dapat diproses: {selector}")
+            time.sleep(3) 
+
+def klik_dengan_js(driver, wait, by, selector, retries=3):
+    for attempt in range(1, retries + 1):
+        try:
+            temp_wait = WebDriverWait(driver, 30)
+            el = temp_wait.until(EC.presence_of_element_located((by, selector)))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+            time.sleep(1)
+            driver.execute_script("arguments[0].click();", el)
+            print(f"     -> Diklik (JS): {selector[:30]}...")
+            return el
+        except Exception as e:
+            print(f"  [~] Percobaan JS {attempt}/{retries} gagal. Menunggu...")
+            if attempt == retries:
+                raise Exception(f"Gagal JS click: {selector}")
+            time.sleep(3)
+
+# ─────────────────────────────────────────────
+# FUNGSI INTERAKSI AGENT AI
+# ─────────────────────────────────────────────
+def interaksi_agent(driver, wait, prompt_text, step_label, buka_panel=True):
+    """
+    Fungsi interaksi Agent dengan opsi untuk melewati pembukaan panel.
+    """
+    if buka_panel:
+        print(f"[{step_label}a] Membuka panel Agent...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//button[@title='Toggle agent']")
+        time.sleep(3)
+    else:
+        print(f"[{step_label}a] Melewati klik Toggle Agent (Diasumsikan panel sudah terbuka)...")
+
+    print(f"[{step_label}b] Menulis prompt ke Agent...")
+    
+    # --- LOGIKA FAIL-SAFE ---
+    try:
+        textarea = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, "//textarea[@placeholder='Develop, debug, deploy anything...']"))
+        )
+    except:
+        print("     -> [!] Textarea Agent tidak ditemukan. Mencoba klik Toggle Agent sebagai pemulihan...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//button[@title='Toggle agent']")
+        time.sleep(2)
+        textarea = tunggu_dan_klik(driver, wait, By.XPATH, "//textarea[@placeholder='Develop, debug, deploy anything...']")
+    # -------------------------
+
+    textarea.clear()
+    textarea.send_keys(prompt_text)
+    time.sleep(1)
+    textarea.send_keys(Keys.ENTER)
+    
+    time.sleep(6) 
+
+    print(f"[{step_label}c] Menunggu tombol Deploy siap (AI sedang memproses)...")
+    tunggu_dan_klik(driver, WebDriverWait(driver, 90), By.XPATH, "//button[@name='Deploy staged changes']", retries=5, timeout_per_try=20)
+    
+    print(f"[{step_label}d] Tombol Deploy berhasil diklik.")
+    time.sleep(5)
+
+# ─────────────────────────────────────────────
+# MAIN FLOW PROSES AKUN
+# ─────────────────────────────────────────────
+def proses_akun(proxy):
+    generated_email = generate_plus_email()
+    print(f"\n{'='*60}")
+    print(f"  Akun    : {generated_email}")
+    print(f"{'='*60}")
+
+    driver = buat_driver(proxy)
+    wait = WebDriverWait(driver, 60)
+
+    try:
+        print("[1] Membuka https://railway.com/")
+        driver.get("https://railway.com/")
+        time.sleep(3)
+
+        print("[2] Klik tombol Sign in...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//button[normalize-space()='Sign in' and contains(@class,'h-10')]")
+        time.sleep(2)
+
+        print("[3] Klik 'Log in using email'...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//button[normalize-space()='Log in using email']")
+        time.sleep(2)
+
+        print("[4] Isi email di input Railway...")
+        imap_result = {"kode": None}
+        def fetch_imap():
+            imap_result["kode"] = ambil_kode_railway(generated_email, timeout=120)
+
+        imap_thread = threading.Thread(target=fetch_imap, daemon=True)
+        imap_thread.start()
+
+        email_input = tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "input[name='email'][type='email']", klik=True)
+        email_input.clear()
+        email_input.send_keys(generated_email)
+        time.sleep(1)
+        email_input.send_keys(Keys.ENTER)
+
+        print("[5] Mengambil login code dari Gmail (background)...")
+        imap_thread.join(timeout=120)
+        login_code = imap_result["kode"]
+
+        if not login_code:
+            raise Exception("Gagal mendapatkan login code, membatalkan proses.")
+
+        print("[6] Menunggu form PIN code muncul di browser...")
+        WebDriverWait(driver, 60).until(EC.frame_to_be_available_and_switch_to_it((By.CSS_SELECTOR, "iframe[src*='auth.magic.link']")))
+        print("     -> Switched ke iframe Magic Link.")
+
+        for attempt_pin in range(3):
+            try:
+                WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "pin-code-input-0")))
+                time.sleep(1)
+                pin_0 = driver.find_element(By.ID, "pin-code-input-0")
+                driver.execute_script("arguments[0].click();", pin_0)
+                time.sleep(0.5)
+                pin_0.send_keys(login_code)
+                print("     -> Kode berhasil dimasukkan.")
+                time.sleep(4)
+                break
+            except Exception as e:
+                if attempt_pin == 2:
+                    raise Exception("Gagal mengisi form PIN setelah 3 percobaan.")
+                print("  [~] Percobaan mengisi PIN diulang...")
+                time.sleep(2)
+
+        driver.switch_to.default_content()
+        simpan_akun(AKUN_FILE, generated_email)
+
+        print("[7] Menunggu dasbor dan klik 'I agree with Railway Terms of Service'...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//button[.//span[normalize-space()=\"I agree with Railway's Terms of Service\"]]", retries=5, timeout_per_try=20)
+        time.sleep(4)
+
+        print("[8] Cek 'I will not deploy any of that'...")
+        try:
+            el = WebDriverWait(driver, 15).until(EC.element_to_be_clickable((By.XPATH, "//button[.//span[normalize-space()='I will not deploy any of that']]")))
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+            time.sleep(1)
+            el.click()
+            print("     -> Diklik.")
+            time.sleep(3)
+        except:
+            print("     -> Pop-up peringatan deploy tidak muncul, lanjut ke langkah berikutnya.")
+
+        print("[9] Klik tombol New awal...")
+        tunggu_dan_klik(driver, wait, By.XPATH, "//a[contains(@href,'/new') and .//span[normalize-space()='New']]")
+        time.sleep(3)
+
+        print("[10] Tunggu dan klik Empty Project...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-project']")
+        print("     -> Menunggu navigasi ke halaman project baru...")
+        WebDriverWait(driver, 45).until(EC.url_contains("/project")) 
+        time.sleep(3) 
+
+        # ------------------- PROMPT 1 -------------------
+        region_pilihan_1 = random.choice(DAFTAR_REGION)
+        # URL dipanggil dari konfigurasi REPO_URL_1
+        promt1 = f"Help me deploy a new service from the repo : {REPO_URL_1} with 2 replicas and region {region_pilihan_1}"
+        print(f"[11] Mengeksekusi Prompt 1 (Region: {region_pilihan_1})...")
+        interaksi_agent(driver, wait, promt1, "11", buka_panel=True) 
+        # ------------------------------------------------
+
+        print("[15] Bypass UI: Membuka langsung halaman pembuatan baru (/new)...")
+        driver.get("https://railway.com/new")
+        print("     -> Menunggu halaman /new dimuat...")
+        WebDriverWait(driver, 30).until(EC.url_contains("/new"))
+        time.sleep(5) 
+
+        print("[17] Tunggu dan klik Empty Project...")
+        tunggu_dan_klik(driver, wait, By.CSS_SELECTOR, "[data-value='empty-project']")
+        print("     -> Menunggu navigasi ke halaman project kedua...")
+        WebDriverWait(driver, 45).until(EC.url_contains("/project")) 
+        time.sleep(3)
+
+        # ------------------- PROMPT 2 -------------------
+        region_pilihan_2 = random.choice(DAFTAR_REGION)
+        # URL dipanggil dari konfigurasi REPO_URL_2
+        promt2 = f"Help me deploy a new service from the repo : {REPO_URL_2} with 2 replicas and region {region_pilihan_2}"
+        print(f"[18] Mengeksekusi Prompt 2 (Region: {region_pilihan_2})...")
+        interaksi_agent(driver, wait, promt2, "18", buka_panel=False)
+        # ------------------------------------------------
+
+        # ------------------- DASHBOARD -------------------
+        print("[19] Mengunjungi halaman Dashboard selama 10 detik...")
+        driver.get("https://railway.com/dashboard")
+        time.sleep(10)
+        # -------------------------------------------------
+
+        print(f"\n[OK] Akun {generated_email} berhasil diproses tanpa masalah.")
+
+    except Exception as e:
+        print(f"\n[ERROR FATAL] Proses akun {generated_email} dihentikan. Rincian: {e}")
+
+    finally:
+        driver.quit()
+        print("     -> Browser ditutup dan sumber daya dilepas.")
+        time.sleep(2)
+
+# ─────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────
+if __name__ == "__main__":
+    proxy = baca_proxy(PROXY_FILE)
+    print("="*60)
+    print("  RAILWAY AUTOMATION SCRIPT V2.1 (AGENT & DEPLOY INTEGRATED)")
+    print("="*60)
+    if proxy:
+        print(f"  IP aktif  : {cek_ip_proxy(proxy)} (via proxy)")
+    else:
+        print(f"  IP aktif  : {cek_ip_proxy(None)} (tanpa proxy)")
+    print("="*60)
+
+    jumlah_env = os.environ.get("JUMLAH_AKUN")
+    if jumlah_env:
+        JUMLAH_AKUN = int(jumlah_env)
+        print(f"\n  Jumlah akun dari env: {JUMLAH_AKUN}")
+    else:
+        try:
+            JUMLAH_AKUN = int(input("\n  Berapa akun yang ingin dibuat? : "))
+            if JUMLAH_AKUN < 1:
+                print("  Jumlah akun harus minimal 1. Script dihentikan.")
+                exit()
+        except ValueError:
+            print("  Input tidak valid. Masukkan angka bulat. Script dihentikan.")
+            exit()
+
+    print(f"  Akan membuat {JUMLAH_AKUN} akun.")
+    print("="*60)
+
+    for i in range(1, JUMLAH_AKUN + 1):
+        print(f"\n[*] Memproses akun {i}/{JUMLAH_AKUN}")
+        proses_akun(proxy)
+
+    print("\n" + "="*60)
+    print("  Semua siklus pembuatan akun telah selesai.")
+    print("="*60)
